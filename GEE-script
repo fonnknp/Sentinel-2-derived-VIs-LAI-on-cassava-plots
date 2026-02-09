@@ -1,0 +1,786 @@
+/* The computation of spectral indices will be followed by Montero et al. (2022) 
+   from https://github.com/awesome-spectral-indices/spectral
+   They compiled spectral index expressions from as many studies as possible.
+*/
+
+// REQUIRE THE SPECTRAL MODULE
+var spectral = require("users/dmlmont/spectral:spectral");
+// // There are 228 spectral indices in the module
+// print(spectral.indices, "List of all spectral indices");
+print(spectral.indices.SeLI, "SeLI");
+// // How to find spectral constant values; https://ee-spectral.readthedocs.io/en/latest/methods.html#
+// print(spectral.constants); // there are 22 spectral constant values
+// print(spectral.constants.L); // print the details of L constant value (SAVI)
+// print(spectral.constants.L.default); // the default values of L is "1"
+
+/*For our study, we focus particularly on vegetation indices including
+  - ATSAVI (Adjusted Transformed Soil-Adjusted Vegetation Index)
+ ** - BNDVI (Blue Normalized Difference Vegetation Index) - Rice
+ ** - CIG (Chlorophyll Index Green) - Maple, Chestnut, Wild vine and Beech
+  - CIRE (Chlorophyll Index Red Edge) - Maple, Chestnut, Wild vine and Beech
+  - CVI (Chlorophyll Vegetation Index) - Planophile crop canopies
+ ** - DVI (Difference Vegetation Index)
+ ** - EVI (Enhanced Vegetation Index)
+  - EVI2 (Two-Band Enhanced Vegetation Index) - weed identification
+  - FCVI (Fluorescence Correction Vegetation Index)
+  - GLI (Green Leaf Index) - wheat
+ ** - GNDVI (Green Normalized Difference Vegetation Index)
+ ** - GRVI (Green Ratio Vegetation Index)
+ ** - RVI (Ratio Vegetation Index)
+  - SEVI (Shadow-Eliminated Vegetation Index)
+  - SI (Shadow Index)
+  - TVI (Transformed Vegetation Index)
+  - TriVI (Triangular Vegetation Index)
+  - VI700 (Vegetation Index)
+ ** - VIG (Vegetation Index Green)
+ ** - NDVI (Normalized Difference Vegetation Index)
+ ** - SeLI (Sentinel-2 LAI Green Index)
+ ** - TCARI (Transformed Chlorophyll Absorption in Reflectance Index)
+ 
+There are several vegetation indices that are commonly used for crop monitoring.
+These indices are derived from remotely sensed data, such as satellite imagery or
+aerial photography, and provide information about the health and vigor of vegetation.
+Here are some of the most widely used vegetation indices for crop monitoring:
+
+ ** - NDVI (Normalized Difference Vegetation Index)
+ ** - EVI (Enhanced Vegetation Index )
+ ** - GNDVI (Green Normalized Difference Vegetation Index)
+ ** - SAVI (Soil-Adjusted Vegetation Index)
+ ** - NDWI (Normalized Difference Water Index)
+ ** - CI (Chlorophyll Index)
+ 
+ ** - NDWI (Normalized Difference Water Index)
+ ** - NMDI (Normalized Multi-band Drought Index)
+ ** - NDMI (Normalized Difference Moisture Index)
+  
+Note that: For the first part of project for the seminar presentation year 1/2023, 
+      we will extract three vegetation indices that are remarked with the asterisk above including;
+    
+      - SeLI (Sentinel-2 LAI Green Index) - 
+      - NDVI (Normalized Difference Vegetation Index) -
+      - SAVI (Soil-Adjusted Vegetation Index) - 
+      
+*/
+
+// // The code below regarding the data acquisition to compute the new bands of vegetation index 
+// // VEGETATION INDEX OF INTEREST - Example: SeLI
+// print(spectral.indices.SeLI, "SeLI_Sentinel-2 LAI Green Index");
+// print(spectral.indices.SeLI.formula, "SeLI formula");
+// // VEGETATION INDEX OF INTEREST - Example: NDVI
+// print(spectral.indices.NDVI, "NDVI_Sentinel-2 Index");
+// print(spectral.indices.NDVI.formula, "NDVI formula");
+// // VEGETATION INDEX OF INTEREST - Example: SAVI
+// print(spectral.indices.SAVI, "SAVI_Sentinel-2 Index");
+// print(spectral.indices.SAVI.formula, "SAVI formula");
+// // VEGETATION INDEX OF INTEREST - Example: EVI
+// print(spectral.indices.SAVI, "EVI_Sentinel-2 Index");
+// print(spectral.indices.SAVI.formula, "EVI formula");
+// // VEGETATION INDEX OF INTEREST - Example: GNDVI
+// print(spectral.indices.SAVI, "GNDVI_Sentinel-2 Index");
+// print(spectral.indices.SAVI.formula, "GNDVI formula");
+// // VEGETATION INDEX OF INTEREST - Example: NDWI
+// print(spectral.indices.SAVI, "NDWI_Sentinel-2 Index");
+// print(spectral.indices.SAVI.formula, "NDWI formula");
+// // VEGETATION INDEX OF INTEREST - Example: CIG
+// print(spectral.indices.SAVI, "CIG_Sentinel-2 Index");
+// print(spectral.indices.SAVI.formula, "CIG formula");
+// // VEGETATION INDEX OF INTEREST - Example: 
+// print(spectral.indices.SAVI, "BNDVI Index");
+// print(spectral.indices.SAVI.formula, "BNDVI formula");
+// // VEGETATION INDEX OF INTEREST - Example: 
+// print(spectral.indices.SAVI, "DVI Index");
+// print(spectral.indices.SAVI.formula, "DVI formula");
+// // VEGETATION INDEX OF INTEREST - Example: 
+// print(spectral.indices.SAVI, "GRVI Index");
+// print(spectral.indices.SAVI.formula, "GRVI formula");
+// // VEGETATION INDEX OF INTEREST - Example: 
+// print(spectral.indices.SAVI, "RVI Index");
+// print(spectral.indices.SAVI.formula, "RVI formula");
+// // VEGETATION INDEX OF INTEREST - Example: 
+// print(spectral.indices.SAVI, "VIG Index");
+// print(spectral.indices.SAVI.formula, "VIG formula");
+// // VEGETATION INDEX OF INTEREST - Example: 
+// print(spectral.indices.TCARI, "TCARI Index");
+// print(spectral.indices.TCARI.formula, "TCARI formula");
+
+
+/*The study site was at Nongbua Sa-Art Sub-distrinc, Buayai District, Nakhon Ratchasrima Province.
+  There were 47 cassava fields on the study site*/ 
+
+// (1) DEFINE THE STUDY SITE
+var nongbua = ee.Geometry.Polygon(
+        [[[102.24965, 15.58734],
+          [102.24965, 15.5596],
+          [102.27575, 15.5596],
+          [102.27575, 15.58734]]], null, false);
+          
+Map.addLayer(nongbua, {color:'white'}, 'Nongbua');
+Map.centerObject(nongbua, 14);
+Map.setOptions('SATELLITE');
+
+// // There were 47 cassava fields of the study site
+var nongbua47 = ee.FeatureCollection('users/kanokpornpromn/Nongbua_47plots');
+Map.addLayer(nongbua47, {color:'white'}, 'Nongbua47plots');
+Map.centerObject(nongbua47, 14);
+Map.setOptions('SATELLITE');
+
+// (2) DEFINE THE DATES TO FILTER - THE DATE THAT HAVE NO-CLOUD
+var datesToFilter = [
+  //'2022-01-11',
+  //'2022-01-16',
+  //'2022-01-26',
+  //'2022-02-25',
+   '2022-03-12',
+   '2022-03-17',
+   '2022-03-27',
+   '2022-04-11',
+   '2022-04-21',
+   '2022-04-26',
+   '2022-06-20'
+];
+
+// (3) REQUIRE THE DATASET: SENTINEL-2 SR HARMONIZED Level-2A
+var dataset = 'COPERNICUS/S2_SR_HARMONIZED';
+
+// Create an empty image collection to store the filtered images
+var filteredCollection = ee.ImageCollection([]);
+
+// Function to mask clouds using the QA60 band
+function maskS2clouds(img) {
+  var qa = img.select('QA60');
+  // Bits 10 and 11 are clouds and cirrus, respectively.
+  var cloudBitMask = 1 << 10;
+  var cirrusBitMask = 1 << 11;
+  // Both flags should be set to zero, indicating clear conditions.
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0)
+      .and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+  return img.updateMask(mask).divide(10000);
+}
+
+//Function to map over an image colletion
+function addIndices(img) {
+  
+  // First apply cloud mask
+  img = maskS2clouds(img);
+  
+  // Required parameters according to the required bands
+  var parameters = {
+    "N": img.select("B8"),
+    "R": img.select("B4"),
+    "N2": img.select("B8A"),
+    "RE1": img.select("B5"),
+    "B": img.select("B2"),
+    "G": img.select("B3"),
+    "S1": img.select("B11"),
+    "S2": img.select("B12"),
+    "RE3": img.select("B7"),
+    "RE2": img.select("B6"),
+    "L": 1.0,
+    "g" : 2.5,
+    "C1" : 6,
+    "C2" : 7.5,
+    "C" : 1,
+    "A" : 3,
+    "D" : 0.2
+  };
+  
+  // scale the image
+  img = spectral.scale(img,dataset);
+
+  // compute the new bands of vegetation indices
+  return spectral.computeIndex(img,['SeLI','GNDVI','NDWI','NDVI','SAVI','DVI',
+  'GRVI','CIG','BNDVI','EVI','RVI','VIG','TCARI'],parameters);
+}
+
+
+// Loop through the dates and filter the collection
+datesToFilter.forEach(function(date) {
+  var startDate = ee.Date(date);
+  var endDate = startDate.advance(1, 'day');
+  var filtered = ee.ImageCollection(dataset)
+    .select('B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B11','B12',
+    'AOT','TCI_R','TCI_G','TCI_B','MSK_CLDPRB','QA10','QA20','QA60')
+    .filterDate(startDate, endDate)
+    .filterBounds(nongbua)
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20))
+    .map(addIndices);
+  filteredCollection = filteredCollection.merge(filtered);
+});
+
+// (4) PRINT IMAGE COLLECTION HAVING OUR NEW BANDS
+print(filteredCollection, 'Sen2_CloudMask having our new bands');
+
+// Define the histogram chart and print it to the console.
+// var RE1_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B8A']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['RE1'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(RE1_hist); 
+
+// var R_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B4']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['R'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(R_hist);
+
+// var G_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B3']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['G'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(G_hist);
+
+// var N_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B8']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['N'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(N_hist);
+
+// var N2_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B5']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['N2'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(N2_hist);
+
+// var B_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B2']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['B'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(B_hist);
+
+// var SWIR1_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B11']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['SWIR1'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(SWIR1_hist);
+
+// var SWIR2_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B12']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['SWIR2'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(SWIR2_hist);
+
+
+// var RE3_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B7']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['RE3'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(RE3_hist);
+
+// var RE2_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['B6']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['RE2'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(RE2_hist);
+
+// // index histogram
+
+// var SeLI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['SeLI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['SeLI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(SeLI_hist);
+
+// var NDVI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['NDVI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['NDVI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(NDVI_hist);
+
+// var SAVI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['SAVI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['SAVI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(SAVI_hist);
+
+// var EVI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['EVI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['EVI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(EVI_hist);
+
+// var GNDVI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['GNDVI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['GNDVI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(GNDVI_hist);
+
+// var NDWI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['NDWI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['NDWI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(NDWI_hist);
+
+// var CIG_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['CIG']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['CIG'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(CIG_hist);
+
+// var BNDVI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['BNDVI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['BNDVI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(BNDVI_hist);
+
+// var DVI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['DVI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['DVI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(DVI_hist);
+
+// var GRVI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['GRVI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['GRVI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(GRVI_hist);
+
+// var RVI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['RVI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['RVI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(RVI_hist);
+
+// var VIG_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['VIG']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['VIG'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(VIG_hist);
+
+// var TCARI_hist =
+//     ui.Chart.image.histogram({image: filteredCollection.select(['TCARI']).median(), region: nongbua, scale: 10})
+//         .setSeriesNames(['TCARI'])
+//         .setOptions({
+//           title: 'Band Reflectance Histogram',
+//           hAxis: {
+//             title: 'Reflectance',
+//             titleTextStyle: {italic: false, bold: true},
+//           },
+//           vAxis:
+//               {title: 'Count', titleTextStyle: {italic: false, bold: true}
+//         }});
+// print(TCARI_hist);
+
+
+// // // REQUIRE THE PALETTES MODULE
+// var palettes = require('users/gena/packages:palettes');
+
+// // // HALINE PALETTE
+// var haline_palette = palettes.cmocean.Haline[7];
+
+// // // VIRIDIS PALETTE
+// var viridis_palette = palettes.matplotlib.viridis[7];
+
+// // // NDVI PALETTE
+// var NDVI_palette = palettes.colorbrewer.RdYlGn[11];
+
+// // // LAI-GREEN PALETTE - Create by user
+// var LAIG_palette = ['#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FDFEFB','#FBFDF8','#FAFCF4','#F8FBF1','#F6FAED','#F5F9EA','#F3F8E6','#F2F7E3','#F0F6DF','#EEF5DC','#EDF4D9','#EBF3D5','#EAF2D2','#E8F1CE','#E6F0CB','#E5EFC7','#E3EEC4','#E1EDC0','#E0ECBD','#DEEBBA','#DDEAB6','#DBE9B3','#D9E8AF','#D8E7AC','#D5E5A5','#D3E4A1','#D1E39E','#D0E29B','#CEE197','#CCE094','#CBDF90','#C9DE8D','#C8DD89','#C6DC86','#C4DB82','#C3DA7F','#C1D97C','#C0D878','#BED775','#BCD671','#BBD56E','#B9D46A','#B7D367','#B6D263','#B4D160','#B3D05D','#B1CF59','#AFCE56','#AECD52','#ABCB4B','#A9CA48','#A7C944','#A6C841','#A4C73E','#A3C63A','#A1C537','#9FC433','#9EC330','#9CC22C','#9AC129','#99C025','#97BF22','#96BE1F','#94BD1B','#92BC18','#91BB14','#8FBA11','#8EB90D','#8CB80A','#8AB706','#89B603','#87B500','#85B400','#82B200','#81B100','#7FB000','#7DAF00','#7CAE00','#7AAD00','#79AC00','#77AB00','#75AA00','#74A900','#72A800','#70A700','#6FA600','#6DA500','#6CA400','#6AA300','#68A200','#67A100','#65A000','#649F00','#629E00','#609D00','#5F9C00','#5D9B00','#5B9A00','#589800','#579700','#559600','#539500','#529400','#509300','#4F9200','#4D9100','#4B9000','#4A8F00','#488E00','#478D00','#458C00','#438B00','#428A00','#408900','#3E8800','#3D8700','#3B8600','#3A8500','#388400','#368300','#358200','#338100','#328000','#2E7E00','#2D7D00','#2B7C00','#297B00','#287A00','#267900','#257800','#237700','#217600','#207500','#1E7400','#1D7300','#1B7200','#197100','#187000','#166F00','#146E00','#136D00','#116C00','#106B00','#0E6A00','#0C6900','#0B6800','#096700','#066500','#046400','#036300','#016200','#006100','#006000','#005F00','#005E00','#005D00','#005C00','#005B00','#005A00','#005900','#005800','#005700','#005600','#005500','#005400','#005300','#005200','#005100','#005000','#004F00','#004E00','#004D00','#004B00','#004A00','#004900','#004800','#004700','#004600','#004500','#004400','#004300','#004200','#004100','#004000','#003F00','#003E00','#003D00','#003C00','#003B00','#003A00','#003900','#003800','#003700','#003600','#003500','#003400','#003200','#003100','#003000','#002F00','#002E00','#002D00','#002C00','#002B00','#002A00','#002900','#002800','#002700','#002600','#002500','#002400','#002300','#002200','#002100','#002000','#001F00','#001E00','#001D00','#001C00','#001B00','#001A00','#001800','#001700','#001600','#001500','#001400','#001300','#001200','#001100','#001000','#000F00','#000E00','#000D00','#000C00','#000B00','#000A00','#000900','#000800','#000700','#000600','#000500','#000400','#000300','#000200','#000100'];
+
+// // // TRUE COLOR
+// var trueColor = {
+//   bands: ["B4", "B3", "B2"],
+//   min: 0.0,
+//   max: 0.3
+// };
+
+// // // pal palette
+// var pal = [
+//     '040274', '040281', '0502a3', '0502b8', '0502ce', '0502e6',
+//     '0602ff', '235cb1', '307ef3', '269db1', '30c8e2', '32d3ef',
+//     '3be285', '3ff38f', '86e26f', '3ae237', 'b5e22e', 'd6e21f',
+//     'fff705', 'ffd611', 'ffb613', 'ff8b13', 'ff6e08', 'ff500d',
+//     'ff0000', 'de0101', 'c21301', 'a71001', '911003'];
+
+// // (5) VISUALIZING THE BAND MAP
+//   // (5.1) SeLI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":-0.5,"max":0.03,"bands":"SeLI", "palette":LAIG_palette.reverse()}, 'SeLI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // (5.2) NDVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":0,"max":1,"bands":"NDVI", "palette":NDVI_palette}, 'NDVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // (5.3) SAVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":0,"max":1,"bands":"SAVI", "palette":LAIG_palette.reverse()}, 'SAVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // (5.3) SAVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), trueColor, 'trueColor');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // (5.4) EVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":0,"max":2,"bands":"EVI", "palette":LAIG_palette.reverse()}, 'EVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // (5.5) GNDVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":0.3,"max":0.7,"bands":"GNDVI", "palette":LAIG_palette.reverse()}, 'GNDVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // (5.6) NDWI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":-0.7,"max":-0.3,"bands":"NDWI", "palette":LAIG_palette.reverse()}, 'NDWI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+
+// // (5.7) CIG MAP no data
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":1,"max":5,"bands":"CIG", "palette":LAIG_palette.reverse()}, 'CIG');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // (5.8) BNDVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":0.4,"max":0.9,"bands":"BNDVI", "palette":LAIG_palette.reverse()}, 'BNDVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+
+// // (5.9) DVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"bands":"DVI", "palette":NDVI_palette}, 'DVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // // (5.10) DVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":800,"max":3500,"bands":"DVI", "palette":LAIG_palette.reverse()}, 'DVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // // (5.11) RVI MAP
+//   Map.addLayer(filteredCollection.first().clip(nongbua), {"min":1,"max":5,"bands":"RVI", "palette":LAIG_palette.reverse()}, 'RVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+ 
+// // (5.12) GRVI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":2,"max":6,"bands":"GRVI", "palette":LAIG_palette.reverse()}, 'GRVI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+ 
+// // (5.13) VIG MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":-0.2,"max":0.1,"bands":"VIG", "palette":LAIG_palette.reverse()}, 'VIG');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // (5.14) TCARI MAP
+// Map.addLayer(filteredCollection.first().clip(nongbua), {"min":-1500,"max":3000,"bands":"TCARI", "palette":NDVI_palette}, 'TCARI');
+// Map.centerObject(nongbua, 14);
+// Map.setOptions('SATELLITE');
+
+// // IMPORT THE BATCH EXPORT FUNCTION
+// var batch = require('users/fitoprincipe/geetools:batch');
+
+// // EXPORT JSON-FILE OF NONGBUA FOR ONLY BANDS 10M-SPATIAL RESOLUTION **IMAGE COLLECTION**
+// BATCH.DOWNLOAD.IMAGECOLLECTION.TODRIVE(FILTEREDCOLLECTION, 'NONGBUA_S2-SR-HARMONIZED_RES10M_NOCLOUD', 
+//                 {DESCRIPTION: 'NONGBUA_S2-SR-HARMONIZED_RES10M_NOCLOUD',
+//                 FILENAMEPREFIX: 'NONGBUA_S2-SR-HARMONIZED_RES10M_NOCLOUD_',
+//                 SCALE: 10, // ADJUST TO DESIRED PIXEL RESOLUTION
+//                 REGION: NONGBUA,
+//                 FILEFORMAT: 'GEOTIFF', 
+//                 CRS: 'EPSG:4326',
+//                 TYPE: 'FLOAT'});
+//var rgbBands = filtered.select(['B2','B3','B4','B5','B6','B7','B8','B8A','B11','B12']); 
+
+// batch.Download.ImageCollection.toDrive(filteredCollection, 'Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2021-10-01_2023-01-01', 
+//                 {description: 'Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2021-10-01_2023-01-01',
+//                 //filenameprefix: 'Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_',
+//                 scale: 10, // ADJUST TO DESIRED PIXEL RESOLUTION
+//                 region: nongbua,
+//                 fileformat: 'GEOTIFF', 
+//                 crs: 'EPSG:4326',
+//                 type: 'float'});
+              
+// BATCH.DOWNLOAD.IMAGECOLLECTION.TODRIVE(FILTEREDCOLLECTION, 'NONGBUA_S2-SR-HARMONIZED_RES10M_NOCLOUD', 
+  //               {DESCRIPTION: 'NONGBUA_S2-SR-HARMONIZED_RES10M_NOCLOUD',
+  //               FILENAMEPREFIX: 'NONGBUA_S2-SR-HARMONIZED_RES10M_NOCLOUD_',
+  //               SCALE: 10, // ADJUST TO DESIRED PIXEL RESOLUTION
+  //               REGION: NONGBUA,
+  //               FILEFORMAT: 'GEOTIFF', 
+  //               CRS: 'EPSG:4326',
+  //               TYPE: 'FLOAT'}); 
+  
+  // Combine the median and standard deviation reducers.
+  
+// // Median_Jan
+// var SeLI_M1 = filteredCollection.filterDate('2022-01-11', '2022-01-26').select('SeLI').median();
+
+// // Display the dictionary of band means and SDs.
+// print(SeLI_M1);
+// Map.addLayer(SeLI_M1.clip(nongbua), {"min":-0.5,"max":0.03,"bands":"SeLI", "palette":LAIG_palette.reverse()}, 'SAVI_med_Jan')  
+// //----
+
+// // Median_Feb
+// var SeLI_M2 = filteredCollection.filterDate('2022-02-01','2022-02-28').select('SeLI').median();
+ 
+// print(SeLI_M2);
+// Map.addLayer(SeLI_M2.clip(nongbua), {"min":-0.5,"max":0.03,"bands":"SeLI", "palette":LAIG_palette.reverse()}, 'SeLI_med_Feb')  
+// //----
+
+// // Median_Mar
+// var SeLI_M2 = filteredCollection.filterDate('2022-03-01','2022-03-30').select('SeLI').median();
+ 
+// print(SeLI_M2);
+// Map.addLayer(SeLI_M2.clip(nongbua), {"min":-0.5,"max":0.03,"bands":"SeLI", "palette":LAIG_palette.reverse()}, 'SeLI_med_Mar')  
+// //----
+ 
+// // Median_April
+// var SeLI_M2 = filteredCollection.filterDate('2022-04-01','2022-04-30').select('SeLI').median();
+ 
+// print(SeLI_M2);
+// Map.addLayer(SeLI_M2.clip(nongbua), {"min":-0.5,"max":0.03,"bands":"SeLI", "palette":LAIG_palette.reverse()}, 'SeLI_med_April') 
+// //----
+ 
+// // Median_June
+// var SeLI_M2 = filteredCollection.filterDate('2022-03-01','2022-03-30').select('SeLI').median();
+ 
+// print(SeLI_M2);
+// Map.addLayer(SeLI_M2.clip(nongbua), {"min":-0.5,"max":0.03,"bands":"SeLI", "palette":LAIG_palette.reverse()}, 'SeLI_med_June')
+
+
+// // Median_Jan
+// var TCARI_M1 = filteredCollection.filterDate('2022-01-11', '2022-01-26').select('TCARI').median();
+
+// // Display the dictionary of band means and SDs.
+// print(TCARI_M1);
+// Map.addLayer(TCARI_M1.clip(nongbua), {"min":-1500,"max":3000,"bands":"TCARI", "palette":NDVI_palette}, 'TCARI_med_Jan')  
+// //----
+
+// // Median_Feb
+// var TCARI_M2 = filteredCollection.filterDate('2022-02-01','2022-02-28').select('TCARI').median();
+ 
+// print(TCARI_M2);
+// Map.addLayer(TCARI_M2.clip(nongbua), {"min":-1500,"max":3000,"bands":"TCARI", "palette":NDVI_palette}, 'TCARI_med_Feb')  
+// //----
+
+// // Median_Mar
+// var TCARI_M2 = filteredCollection.filterDate('2022-03-01','2022-03-30').select('TCARI').median();
+ 
+// print(TCARI_M2);
+// Map.addLayer(TCARI_M2.clip(nongbua), {"min":-1500,"max":3000,"bands":"TCARI", "palette":NDVI_palette}, 'TCARI_med_Mar')  
+// //----
+ 
+// // Median_April
+// var TCARI_M2 = filteredCollection.filterDate('2022-04-01','2022-04-30').select('TCARI').median();
+ 
+// print(TCARI_M2);
+// Map.addLayer(TCARI_M2.clip(nongbua), {"min":-1500,"max":3000,"bands":"TCARI", "palette":NDVI_palette}, 'TCARI_med_April') 
+// //----
+ 
+// // Median_June
+// var TCARI_M2 = filteredCollection.filterDate('2022-03-01','2022-03-30').select('TCARI').median();
+ 
+// print(TCARI_M2);
+// Map.addLayer(TCARI_M2.clip(nongbua), {"min":-1500,"max":3000,"bands":"TCARI", "palette":NDVI_palette}, 'TCARI_med_June')
+
+// // Median_Jan
+// var VIG_M1 = filteredCollection.filterDate('2022-01-11', '2022-01-26').select('VIG').median();
+
+// // Display the dictionary of band means and SDs.
+// print(VIG_M1);
+// Map.addLayer(VIG_M1.clip(nongbua), {"min":-0.2,"max":0.1,"bands":"VIG", "palette":LAIG_palette.reverse()}, 'VIG_med_Jan')  
+// //----
+
+// // Median_Feb
+// var VIG_M2 = filteredCollection.filterDate('2022-02-01','2022-02-28').select('VIG').median();
+ 
+// print(VIG_M2);
+// Map.addLayer(VIG_M2.clip(nongbua), {"min":-0.2,"max":0.1,"bands":"VIG", "palette":LAIG_palette.reverse()}, 'VIG_med_Feb')  
+// //----
+
+// // Median_Mar
+// var VIG_M2 = filteredCollection.filterDate('2022-03-01','2022-03-30').select('VIG').median();
+ 
+// print(VIG_M2);
+// Map.addLayer(VIG_M2.clip(nongbua), {"min":-0.2,"max":0.1,"bands":"VIG", "palette":LAIG_palette.reverse()}, 'VIG_med_Mar')  
+// //----
+ 
+// // Median_April
+// var VIG_M2 = filteredCollection.filterDate('2022-04-01','2022-04-30').select('VIG').median();
+ 
+// print(VIG_M2);
+// Map.addLayer(VIG_M2.clip(nongbua), {"min":-0.2,"max":0.1,"bands":"VIG", "palette":LAIG_palette.reverse()}, 'VIG_med_April') 
+// //----
+ 
+// // Median_June
+// var VIG_M2 = filteredCollection.filterDate('2022-03-01','2022-03-30').select('VIG').median();
+ 
+// print(VIG_M2);
+// Map.addLayer(VIG_M2.clip(nongbua), {"min":-0.2,"max":0.1,"bands":"VIG", "palette":LAIG_palette.reverse()}, 'VIG_med_June')
