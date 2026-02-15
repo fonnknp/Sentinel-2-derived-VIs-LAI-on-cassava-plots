@@ -1,1 +1,1 @@
-# Evaluation of Sentinel-2 Vegetation Indices for Estimating Leaf Area Index in Cassava Plots<img width="468" height="41" alt="image" src="https://github.com/user-attachments/assets/9981a8ce-9678-4652-a487-2fb41ebb6927" />
+# Evaluation of Sentinel-2 Vegetation Indices for Estimating Leaf Area Index in Cassava Plots
