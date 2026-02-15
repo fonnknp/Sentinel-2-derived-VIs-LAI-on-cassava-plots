@@ -1,75 +1,103 @@
-library(tidyterra)
-library(tidyverse)
-library(ggspatial)
-library(terra)
+# ==========================================================================
+# Section 2.3.3. Vegetation indices (VIs) computation
+# Zonal median extraction of Sentinel-2 vegetation indices per cassava plot and MAP.
+# =========================================================================
 
-#create list files to collect raster file names
-listfiles <- list.files("Data/GEE-image/Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2022-01-01_2022-12-31", pattern ="*\\T47PRT.tif$", full = T)
+# Load libraries
+library(tidyterra)   # Tidyverse-compatible tools for terra spatial objects
+library(tidyverse)   # Data manipulation and visualization
+library(ggspatial)   # Add map elements (scale bar, north arrow) to ggplot
+library(terra)       # Raster and vector spatial data processing
 
-#list files selecting the dates that are closest to the ground-LAI measurement dates 
-#[4] "Data/GEE-image/Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2022-01-01_2022-12-31/20220116T034059_20220116T035009_T47PRT.tif"
-#[7] "Data/GEE-image/Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2022-01-01_2022-12-31/20220225T033719_20220225T035209_T47PRT.tif"
-#[11] "Data/GEE-image/Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2022-01-01_2022-12-31/20220327T033529_20220327T034838_T47PRT.tif"
-#[15] "Data/GEE-image/Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2022-01-01_2022-12-31/20220426T033529_20220426T034806_T47PRT.tif"
-#[16] "Data/GEE-image/Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2022-01-01_2022-12-31/20220620T033551_20220620T034626_T47PRT.tif"
+# List all GeoTIFF raster files from the Google Earth Engine (GEE) export folder
+listfiles <- list.files(
+  "Data/GEE-image/Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2022-01-01_2022-12-31",
+  pattern = "*\\T47PRT.tif$",
+  full = T
+)
 
-#import raster files of each MAP, selecting the dates that are closest to the ground-LAI measurement dates
-listfiles <- listfiles[c(4,7,11,15,16)]
+# Select only 5 images with acquisition dates closest to ground-LAI measurement dates (Table 1)
+# Index [4]  = 16 Jan 2022 → closest to LAI measurement on 17-18 Jan (2 MAP)
+# Index [7]  = 25 Feb 2022 → closest to LAI measurement on 23-24 Feb (3 MAP)
+# Index [11] = 27 Mar 2022 → closest to LAI measurement on 19-20 Mar (4 MAP)
+# Index [15] = 26 Apr 2022 → closest to LAI measurement on 21-22 Apr (5 MAP)
+# Index [16] = 20 Jun 2022 → closest to LAI measurement on 25-26 Jun (7 MAP)
+# Note: No image met quality criteria in May 2022 (6 MAP), so this month is excluded
+listfiles <- listfiles[c(4, 7, 11, 15, 16)]
 
-#stack all rasters 
+# Stack all 5 raster files into a multi-layer SpatRaster object
+# Each file contains multiple bands/VIs, so the total number of layers = bands × dates
 rast_stack <- rast(listfiles)
 
-#create a function to compute zonal statistics based on median for each image in the stack raster
-zonal_median <- function(rast_stack){
-  plots47_shp <- vect("Data/Nongbua-shapefile/Nongbua_47plots/Nongbua_47plots.shp") #cassava plots - vector
-  n <- nlyr(rast_stack) #the number of layers
-  result_list <- list() #create a list to contain results
-  for (i in 1:n){
-    stack <- rast_stack[[i]] #stack images in each day
+# Define a function to compute zonal statistics (median) for each plot polygon
+zonal_median <- function(rast_stack) {
+  
+  # Read the shapefile containing boundaries of all 47 cassava plots
+  plots47_shp <- vect("Data/Nongbua-shapefile/Nongbua_47plots/Nongbua_47plots.shp")
+  
+  # Get the total number of layers in the raster stack
+  n <- nlyr(rast_stack)
+  
+  # Initialize an empty list to store results from each layer
+  result_list <- list()
+  
+  # Loop through each layer (i.e., each band/VI for each date)
+  for (i in 1:n) {
     
-    zonal.median <- terra::extract(stack,plots47_shp,fun='median',ID=T) #zonal statistic by median
+    # Extract the i-th layer (one band/VI from one date)
+    stack <- rast_stack[[i]]
+    
+    # Compute the median of all pixel values within each plot boundary
+    # Median is used instead of mean to reduce the influence of outlier pixels
+    # (e.g., from mixed pixels at plot edges or residual cloud artifacts)
+    zonal.median <- terra::extract(stack, plots47_shp, fun = 'median', ID = T)
+    
+    # Count the number of non-NA pixels within each plot boundary
+    # This serves as a quality check to ensure sufficient spatial coverage per plot
     zonal.count <- terra::extract(stack, plots47_shp, fun = function(x) sum(!is.na(x)))
     
-    zonal.median$ID <- plots47_shp$Name #change index to plot names
-    zonal.count$ID <- plots47_shp$Name #change index to plot names
+    # Replace numeric IDs with plot names from the shapefile attribute table
+    zonal.median$ID <- plots47_shp$Name
+    zonal.count$ID <- plots47_shp$Name
     
-    colnames(zonal.median) <- c("Plot","Median.index") # change column names
-    colnames(zonal.count) <- c("Plot","Pixel.count") # change column names
+    # Rename columns for clarity
+    colnames(zonal.median) <- c("Plot", "Median.index")
+    colnames(zonal.count) <- c("Plot", "Pixel.count")
     
+    # Merge median values and pixel counts by plot name
     zonal_data <- merge(zonal.median, zonal.count, by = "Plot")
     
+    # Extract the 8-digit date string (e.g., "20220116") from the raster source filename
     zonal_data$date <- str_extract(sources(stack), "\\d{8}")
-    zonal_data <- zonal_data %>%
-      mutate(date = ymd(date),
-             MAP = as.double(substr(date, 6, 7)) + 1) 
     
-    zonal_data$Index <- names(stack) #create index column
-    result_list[[i]] <- zonal_data #collect results into the list
+    # Convert the date string to Date format and calculate Months After Planting (MAP)
+    # MAP calculation: extract the month number (characters 6-7 of the date) and add 1
+    # This works because cassava was planted around December 2021, so:
+    # Jan (01) + 1 = 2 MAP, Feb (02) + 1 = 3 MAP, ..., Jun (06) + 1 = 7 MAP
+    zonal_data <- zonal_data %>%
+      mutate(
+        date = ymd(date),
+        MAP = as.double(substr(date, 6, 7)) + 1
+      )
+    
+    # Add the band/VI name from the raster layer name as a new column
+    zonal_data$Index <- names(stack)
+    
+    # Append this layer's results to the list
+    result_list[[i]] <- zonal_data
   }
-  # Combine all results into a single dataframe
+  
+  # Combine all individual dataframes into one final dataframe
   final_result <- do.call(rbind, result_list)
   return(final_result)
 }
 
-#compute zonal analysis by median for all bands----
-ALL_INDEX_zonal <- zonal_median(rast_stack) %>% 
-  select(MAP,date,Plot,Index,Pixel.count,Median.index)
+# Run the zonal median function on the stacked rasters
+# Then select and reorder columns for a clean output format
+ALL_INDEX_zonal <- zonal_median(rast_stack) %>%
+  select(MAP, date, Plot, Index, Pixel.count, Median.index)
 
+# Export the results as a CSV file for subsequent statistical analysis
+# (e.g., linear mixed-effects models, stage-specific regressions)
 write.csv(ALL_INDEX_zonal, "Data/all_index_zonal_median.csv", row.names = F)
-
-##############################################################
-#M1_list <- list.files("Data/GEE-image/Nongbua_S2-SR-Level2A-Harmonized_allBands_VIs_Res10m_2021-10-01_2023-01-01/", pattern ="\\d{4}(01)\\d{2}T.*\\T47PRT.tif$", full = T)
-#M1_stack <- rast(M1_list)
-#M1_SeLI <- M1_stack[[grep("^SeLI$", names(M1_stack))]]
-
-#rast_stack[[21]]
-#nlyr(rast_stack)
-#names(rast_stack)
-#zonal.med.test <- extract(rast_stack[[21]],plots47_shp,fun='median',ID=T)
-#zonal.med.test$ID <- plots47_shp$Name
-#colnames(zonal.med.test) <- c("Plot","Value")
-#zonal.med.test$date <- str_extract(sources(rast_stack[[21]]), "\\d{8}")
-#zonal.med.test$Index <- names(rast_stack[[21]])
-#
-
-
+###########################################################################
