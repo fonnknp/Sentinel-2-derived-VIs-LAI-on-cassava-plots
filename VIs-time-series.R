@@ -1,5 +1,10 @@
+# =====================================================================
+# Section 3.1. Temporal Patterns of Ground–LAI and Vegetation indices
+# =====================================================================
+
 # Load libraries
 library(tidyverse)    # For data manipulation & visualization
+library(tidytext)     # For reorder in faceted plots
 
 # --- 0. Data preparation ----
 
