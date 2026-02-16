@@ -14,7 +14,6 @@ library(lmerTest)     # For linear mixed-effects models with p-values
 library(MuMIn)        # For marginal & conditional R²
 library(performance)  # For model evaluation metric - RMSE
 library(tidytext)     # For reorder in faceted plots
-library(ggridges)     # For ridge density plots
 
 # --- 0. Data preparation ----
 
