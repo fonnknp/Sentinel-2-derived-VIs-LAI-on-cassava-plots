@@ -33,7 +33,7 @@ rast_stack <- rast(listfiles)
 zonal_median <- function(rast_stack) {
   
   # Read the shapefile containing boundaries of all 47 cassava plots
-  plots47_shp <- vect("Data/Nongbua-shapefile/Nongbua_47plots/Nongbua_47plots.shp")
+  plots47_shp <- vect("DATA/Nongbua_47plots/Nongbua_47plots.shp")
   
   # Get the total number of layers in the raster stack
   n <- nlyr(rast_stack)
