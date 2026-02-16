@@ -65,6 +65,7 @@ The 13 Sentinel-2-derived vegetation indices evaluated:
 
 ## Contact
 
+if you have inquiries about the code and data, please contact;
 - Kanokporn Promnikorn — kanokporn.promn@ku.th
 - Ekaphan Kraichak (corresponding author) — ekaphan.k@ku.th
 
