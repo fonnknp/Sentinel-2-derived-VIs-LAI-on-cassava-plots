@@ -1,4 +1,6 @@
-// 2.3 Preparation of Sentinel-2-derived vegetation indices
+// ================================================================
+// Section 2.3 Preparation of Sentinel-2-derived vegetation indices
+// ================================================================
 
 /* The computation of spectral indices will be followed by Montero et al. (2022) 
 from https://github.com/awesome-spectral-indices/spectral */
